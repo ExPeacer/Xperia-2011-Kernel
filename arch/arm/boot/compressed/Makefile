@@ -4,8 +4,14 @@
 # create a compressed vmlinuz image from the original vmlinux
 #
 
+plus_sec := $(call as-instr,.arch_extension sec,+sec)
+
+AFLAGS_head.o := -Wa,-march=armv7-a
 HEAD	= head.o
-OBJS	= misc.o
+AFLAGS_misc.o +=-Wa,-march=armv7-a
+MISC = misc.o
+AFLAGS_piggy.o +=-Wa,-march=armv7-a
+PIGGY = piggy.o
 FONTC	= $(srctree)/drivers/video/console/font_acorn_8x8.c
 
 #
@@ -92,16 +98,17 @@ LDFLAGS_vmlinux += -p --no-undefined -X \
 
 # Don't allow any static data in misc.o, which
 # would otherwise mess up our GOT table
-CFLAGS_misc.o := -Wa,-march=armv7-a -Dstatic=
+CFLAGS_misc.o := -Dstatic=
 
-$(obj)/vmlinux: $(obj)/vmlinux.lds $(obj)/$(HEAD) $(obj)/piggy.o \
-                $(addprefix $(obj)/, $(OBJS)) FORCE
-        $(call if_changed,ld)
-        @:
+$(obj)/vmlinux: $(obj)/vmlinux.lds $(obj)/$(HEAD) $(obj)/$(MISC) $(obj)/$(PIGGY) \
+	 	$(addprefix $(obj)/, $(OBJS)) FORCE
+	$(call if_changed,ld)
+	@:
 
 $(obj)/piggy.gz: $(obj)/../Image FORCE
-        $(call if_changed,gzip)
+	$(call if_changed,gzip)
 
+AFLAGS_piggy.$(suffix_y).o += -Wa,-march=armv7-a
 $(obj)/piggy.o:  $(obj)/piggy.gz FORCE
 
 CFLAGS_font.o := -Dstatic=
@@ -111,3 +118,4 @@ $(obj)/font.c: $(FONTC)
 
 $(obj)/vmlinux.lds: $(obj)/vmlinux.lds.in arch/arm/boot/Makefile .config
 	@sed "$(SEDFLAGS)" < $< > $@
+
